@@ -1,5 +1,4 @@
-/* Token Radar — radar-6 theme. One palette, two radii, two families; the rest is spacing,
-   a hairline and a type step. Dark ink, gold signal, green for growth, red for decline. */
+/* Token Radar theme */
 :root {
   --bg: #0a0e17;
   --bg2: #0d1322;
@@ -37,7 +36,6 @@ a { color: var(--gold); }
 
 .shell { max-width: 1180px; margin: 0 auto; padding: 0 20px 64px; }
 
-/* Header */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .mark { width: 34px; height: 34px; border-radius: 9px; background: var(--gold); position: relative; flex: none; }
@@ -49,7 +47,6 @@ a { color: var(--gold); }
 .pill { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--bg2); white-space: nowrap; }
 .pill b { color: var(--text); font-weight: 600; }
 
-/* Hero */
 .lede { padding: 22px 0 4px; }
 .lede h1 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; letter-spacing: -.4px; max-width: 760px; }
 .lede h1 .gold { color: var(--gold); }
@@ -60,7 +57,6 @@ a { color: var(--gold); }
 .fact b { font-size: 19px; font-weight: 750; font-family: var(--mono); letter-spacing: -.5px; }
 .fact small { display: block; color: var(--faint); font-size: 12px; margin-top: 1px; }
 
-/* Top 10 spotlight */
 .spot { margin: 22px 0 4px; }
 .spot h2 { font-size: 15px; margin: 0 0 4px; letter-spacing: .3px; }
 .spot h2 span { color: var(--gold); }
@@ -74,7 +70,6 @@ a { color: var(--gold); }
 .spot-card .vl { display: block; font-family: var(--mono); font-size: 16px; font-weight: 700; margin-top: 7px; }
 .spot-card .gr { font-size: 12px; font-family: var(--mono); }
 
-/* Controls */
 .controls { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 22px 0 14px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field label, .field .lab { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
@@ -89,7 +84,6 @@ a { color: var(--gold); }
 .tabs button[aria-pressed="true"] { background: var(--gold); color: #14100a; font-weight: 700; }
 .count { margin-left: auto; color: var(--muted); font-size: 13px; padding-bottom: 9px; }
 
-/* Panels and tables */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin: 0 0 18px; overflow: hidden; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -111,7 +105,7 @@ td.num, th.num { text-align: right; }
 .implied .bar { height: 5px; background: #1e2740; border-radius: 3px; overflow: hidden; }
 .implied .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); border-radius: 3px; }
 .implied .num { font-weight: 700; font-size: 14px; }
-.model-line { display: block; font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 2px; white-space: nowrap; }
+.model-line { display: block; font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 2px; white-space: normal; }
 .status { display: inline-block; font-size: 12px; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line2); color: var(--muted); white-space: nowrap; }
 .status.live { color: var(--green); border-color: #1e4d3a; }
 .status.bnd { color: var(--gold); border-color: var(--gold-dim); }
@@ -125,7 +119,6 @@ td.num, th.num { text-align: right; }
 .button { background: var(--gold); color: #14100a; border: 0; border-radius: var(--radius-sm); padding: 10px 18px; font: inherit; font-weight: 700; cursor: pointer; }
 .button.primary { background: var(--gold); }
 
-/* Methodology */
 .model { padding: 20px 22px; }
 .model h2 { margin: 0 0 6px; font-size: 17px; }
 .model p { margin: 0 0 12px; color: var(--muted); }
@@ -134,8 +127,7 @@ td.num, th.num { text-align: right; }
 .model li { margin-bottom: 5px; }
 .model li b { color: var(--text); }
 
-/* Detail dialog */
-dialog.detail { background: var(--panel); color: var(--text); border: 1px solid var(--line2); border-radius: 14px; padding: 0; max-width: 680px; width: calc(100vw - 32px); box-shadow: 0 24px 60px rgba(0,0,0,.6); }
+dialog.detail { background: var(--panel); color: var(--text); border: 1px solid var(--line2); border-radius: 14px; padding: 0; max-width: 680px; width: calc(100vw - 32px); max-height: calc(100vh - 48px); overflow: auto; box-shadow: 0 24px 60px rgba(0,0,0,.6); }
 dialog.detail::backdrop { background: rgba(4, 7, 14, .72); }
 .detail-head { display: flex; justify-content: space-between; gap: 16px; padding: 20px 22px 0; align-items: flex-start; }
 .detail-head .brand-name { font-size: 12px; color: var(--gold); text-transform: uppercase; letter-spacing: .8px; }
@@ -159,7 +151,6 @@ dialog.detail::backdrop { background: rgba(4, 7, 14, .72); }
 .steps li b { display: inline; font-weight: 600; font-size: 13px; }
 .steps .cost { display: inline; color: var(--muted); font-size: 12px; }
 
-/* Footer */
 .foot { color: var(--faint); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 8px; }
 .foot p { margin: 0 0 6px; }
 
@@ -171,7 +162,6 @@ dialog.detail::backdrop { background: rgba(4, 7, 14, .72); }
   .count { margin-left: 0; }
 }
 
-/* Calibration table: the per-category multiples the model uses, with their sample sizes. */
 .cal-title { margin: 18px 0 4px; font-size: 14px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); }
 table.cal { font-size: 13px; }
 table.cal th, table.cal td { padding: 8px 12px; }
@@ -179,7 +169,6 @@ table.cal td b { font-weight: 700; }
 .model .table-wrap { margin: 0 0 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
 .model .table-wrap table { margin: 0; }
 
-/* Category chart: total implied value per category, strongest first. */
 .catchart { padding: 16px 18px 14px; }
 .catchart h2 { margin: 0 0 4px; }
 .catchart h2 span { color: var(--gold); }
@@ -196,3 +185,4 @@ table.cal td b { font-weight: 700; }
   .cat-row { grid-template-columns: 110px 1fr 90px; }
   .cat-count { display: none; }
 }
+

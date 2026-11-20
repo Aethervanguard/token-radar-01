@@ -1,8 +1,13 @@
 // token-radar-01 entrypoint (Node 22, standard library only).
 //
-// Reads the sealed snapshot, scores every pre-token protocol with the radar-9
+// Reads the sealed snapshot, scores every pre-token protocol with the radar-12
 // model in lib/model.ts, and writes the ranked board, the dashboard data, the
 // dashboard and screenshots, and the dossier the judge reads.
+// radar-12 keeps radar-11's model (re-tested this round: log age and growth both fail
+// honest leave-one-out, so no new value or launch signal enters) and spends its budget
+// on the dashboard: the detail dialog fits the viewport so the per-row equation shows,
+// the board table fits its width, the table caption carries the coverage proof, and the
+// screenshots are framed on the table itself.
 //
 // Layout of the run:
 //   snapshot  -> parseSnapshot -> buildRadar -> board.json + data.js

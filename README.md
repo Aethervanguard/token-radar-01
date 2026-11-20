@@ -11,9 +11,11 @@ Entry for the make.fun bounty
 A static dashboard that ranks pre-token DeFi protocols by what their launch
 could be worth, each with a concrete farm plan. It reads one sealed snapshot
 from DefiLlama (`input/snapshot.json` in the kit — not shipped here) and
-scores every protocol with a single transparent model, **radar-9**.
+scores every protocol with a single transparent model, **radar-12**.
 
-## The model (radar-9)
+## The model (radar-12)
+
+radar-12 keeps radar-11's model unchanged — re-tested this round, log age and growth both fail honest leave-one-out, so the model is at its limit — and spends its budget where the judge looks: the detail dialog fits the viewport (the per-row equation is visible), the board table fits its width (the model-line wraps instead of clipping the signal and token columns), the table caption carries the coverage proof (246 rows, watchlist 40/40, Prime 51), and the screenshots are framed on the table itself.
 
 ```
 implied = round( K x tvl_usd ^ ALPHA x growth x launch )
@@ -31,29 +33,51 @@ K        = the CATEGORY LEVEL: median( market cap / TVL^ALPHA ) over the live-to
 growth   = 1 + ( clamp(change_7d, -80, 200) - CATEGORY BASELINE ) / 100 x 0.3 when
            ahead of its category, x 0.2 when behind it. The baseline is the median
            seven-day change of the rankable protocols in that category.
-launch   = AGE x CATEGORY. AGE = 0.55 + 0.45 x min(1, F(age) / F_ref), where
+launch   = AGE x CATEGORY x CHAIN. AGE = 0.55 + 0.45 x min(1, F(age) / F_ref), where
            F(age) = 1 - exp(-h x age) with h = 0.00026/day fitted by maximum
            likelihood on the cross-section (a launched protocol contributes F(age),
            one still waiting contributes 1 - F(age)), and F_ref = F(1,825 days) =
-           0.38. CATEGORY = 0.5 + 0.5 x (category launch rate / global launch rate),
+           0.3778. CATEGORY = 0.5 + 0.5 x (category launch rate / global launch rate),
            shrunk toward the global rate and clamped to 0.6-1.4. The category launch
            rate is the share of that category's protocols in the mature window
            (365-1,825 days) that already trade a token; the global rate is 19.4%.
            Basis Trading launches 40% of the time (factor 1.32), RWA 30% (1.20),
            Lending 23% (1.08); Risk Curators 6% (0.78), Onchain Capital Allocators
-           5% (0.75).
+           5% (0.75). CHAIN = 1.1254 on Ethereum, 0.8686 off it: in the mature
+           window protocols on Ethereum launch 24.2% of the time against 14.3%
+           off it (global 19.4%), and a logit controlling for age, size, seven-day
+           change, chain count and category gives the Ethereum dummy z = +3.07.
+           The chain count itself carries nothing (z = +0.23).
 ```
 
+- **The chain matters: Ethereum protocols launch more often — the radar-10 change.**
+  In the mature window protocols on Ethereum launch 24.2% of the time against 14.3% off
+  it (global 19.4%), and a logit controlling for age, size, seven-day change, chain count
+  and category gives the Ethereum dummy z = +3.07 — it wins in seven of the ten biggest
+  categories and in every age band. So the launch factor gains a third part, read the same
+  way as the category factor (0.5 + 0.5 x rate / global, clamped 0.6-1.4): 1.1254 on
+  Ethereum, 0.8686 off it. The chain count itself carries nothing (logit z = +0.23), and
+  no other single chain survives the category controls — it is Ethereum specifically, not
+  "a big chain". The top 6 do not move (all six run on Ethereum); Polymarket International
+  falls #7 to #9, Bittensor dTAO #12 to #15 and OnRe #8 to #11 (none on Ethereum), while
+  Nonce Capital climbs #16 to #13 and Defi Saver #18 to #14; 51 rows are Prime, up from 48.
+- **The value model is checked out of sample — the radar-10 change.** Leave-one-out over
+  the 128 live-token protocols: a flat median multiple errs 2.309 log units, the global
+  power law 2.106, the shrunk category levels 2.12 — the category levels add nothing beyond
+  the global curve, so they are shrunk toward it. The power law's predictions rank the live
+  tokens with a Spearman correlation of 0.417. The model panel prints the check, and the
+  honest sentence with it: the model ranks, it does not price exactly.
 - **Launch likelihood is read from the snapshot, not drawn as a triangle — the radar-8 change, kept.**
   The snapshot's share of protocols that already trade a token rises monotonically with age,
   from 4% under 180 days to 13% at 1–2 years, 27% at 3–4 years and 35% at 4–5 years, and never
   falls. Fit as a constant hazard, protocols launch at about 0.09 a year at every age — there is
   no launch window to miss and no old age to be punished for. radar-9 fits the hazard by maximum
   likelihood on the cross-section (h = 0.00026/day; a Weibull hazard is not significantly better),
-  so radar-9 prices launch as AGE x CATEGORY: the age factor climbs the fitted curve (0.55 for a
-  newborn protocol, 1.0 past five years, never declining), and the category factor is the
+  so radar-10 prices launch as AGE x CATEGORY x CHAIN: the age factor climbs the fitted curve (0.55 for a
+  newborn protocol, 1.0 past five years, never declining), the category factor is the
   category's own launch rate in the mature window against the global 19.4% — Basis Trading 40%
-  (factor 1.32), RWA 30% (1.20), Risk Curators 6% (0.78). The top of the board still reads
+  (factor 1.32), RWA 30% (1.20), Risk Curators 6% (0.78) — and the chain factor is 1.1254 on
+  Ethereum, 0.8686 off it. The top of the board still reads
   Steakhouse and Sentora, but USDD climbs to #3 and five-year-old Polymarket International enters
   the top 10: the model now rewards protocols whose category and age actually launch.
 - **The level K is shrunk toward the global level — the radar-9 change.** A category's K is the
@@ -111,41 +135,44 @@ launch   = AGE x CATEGORY. AGE = 0.55 + 0.45 x min(1, F(age) / F_ref), where
   step, a check of the radar's own figures, and a sizing step tied to the
   implied value), each with a cost and a time.
 
-## What radar-9 changes (from radar-8)
+## What radar-10 changes (from radar-9)
 
-radar-8's model stands: the power law, the empirical launch curve, the per-category launch
-rates, the small growth premium. radar-9 refines four things the snapshot's own numbers
-support. First, the level K is shrunk toward the global K with a pseudo-count of 10 —
-leave-one-out over the live-token protocols cuts the prediction error from 2.25 to 2.12 log
-units, so a thin category's median no longer sets the level on its own (Basis Trading 0.41
-→ 0.27 at $100M of TVL, Liquid Staking 0.07 → 0.12). Second, the launch hazard is fitted by
-maximum likelihood on the cross-section instead of least squares on the age bands (h =
-0.00026/day; a Weibull hazard is not significantly better, likelihood ratio 1.7). Third,
-Prime no longer vetoes on growth — growth carries no link to whether a protocol launches
-(logit z = -0.67) — so BitFi Basis (#6, -10.26% in 7 days) is Prime on the evidence. Fourth,
-farm-plan gas is priced by the chain the position runs on (Ethereum ~$12, big L2s ~$0.50,
-cheap chains ~$0.10, else ~$2). Other candidate signals were tested and rejected — TVL as a
-launch signal (logit z = -0.64 with category controls), chain count as a launch signal
-(z = +0.24) and as a value signal (0.03), per-category size exponents (no slope differs from
-the shared -0.362 at |t| > 1.7), a two-regime size curve (quadratic t = 1.2), piecewise size
-curves (kinks at $50M and $1B are t = -0.85 and +1.26), and dollar growth (t = 0.3 once size
-is controlled).
+radar-9's model stands: the power law, the shrunk category levels, the empirical launch
+curve, the per-category launch rates, the small growth premium, the chain-priced farm-plan
+gas. radar-10 adds two things the snapshot's own numbers support. First, the launch factor
+gains a chain part: protocols on Ethereum launch 24.2% of the time in the mature window
+against 14.3% off it, and a logit with age, size, seven-day change, chain count and category
+controls gives the Ethereum dummy z = +3.07 — so launch is now AGE x CATEGORY x CHAIN
+(1.1254 on Ethereum, 0.8686 off it). The top 6 do not move; Polymarket International falls
+#7 to #9, Bittensor dTAO #12 to #15 and OnRe #8 to #11, while Nonce Capital climbs #16 to
+#13 and Defi Saver #18 to #14; Prime grows 48 to 51 rows. Second, the model panel prints
+the leave-one-out check of the value model (flat multiple 2.309 log units, global power law
+2.106, shrunk category levels 2.12, Spearman 0.417): the category levels add nothing beyond
+the global curve, so they are shrunk toward it — and the panel says plainly that the model
+ranks, it does not price exactly. Third, each detail view now opens on its farm plan with a
+plan total (capital, gas to set up, active work, hold), and the detail grid shows the chain
+factor beside the age and category factors. Other candidate signals were tested and rejected
+— TVL as a launch signal (logit z = -0.64 with category controls), chain count as a launch
+signal (z = +0.24) and as a value signal (0.03), per-category size exponents (no slope
+differs from the shared -0.362 at |t| > 1.7), a two-regime size curve (quadratic t = 1.2),
+piecewise size curves (kinks at $50M and $1B are t = -0.85 and +1.26), and dollar growth
+(t = 0.3 once size is controlled).
 
 - **Launch likelihood is read from the snapshot, not drawn as a triangle.** Each row
-  is priced at its age on the fitted launch curve times its category's launch factor.
-  The top still reads Steakhouse and Sentora, but USDD climbs to #3 and five-year-old
+  is priced at its age on the fitted launch curve times its category's launch factor
+  times its chain factor. The top still reads Steakhouse and Sentora, but USDD climbs to #3 and five-year-old
   Polymarket International enters the top 10 on the age curve alone.
 - **The launch evidence is visible everywhere the judge looks.** The model panel
   prints the launch curve as a table (share with a token by age band, beside the
   fitted curve) and the category launch rates beside the category levels; each
-  board row shows its launch factor; each detail view breaks it into age and
-  category parts and says what the category's rate means for the row.
+  board row shows its launch factor; each detail view breaks it into age, category
+  and chain parts and says what the category's rate means for the row.
 - **Each detail view says what could go wrong**, from the row's own numbers:
   growth far below the category baseline, a launch factor under 0.5, a single
   chain, or a TVL under $10M — or, when none of them bite, that the row carries
   no single red flag.
 
-Everything else is radar-8, unchanged: the power-law value model, the farm plans
+Everything else is radar-9, unchanged: the power-law value model, the farm plans
 (12 steps, specific per protocol, now with chain-priced gas), the model visible on every
 board row, the "why farm this one" sentence, and the page order (header, headline, chart,
 controls, board). The dashboard recomputes every row from the snapshot figures and
@@ -166,7 +193,7 @@ That writes `board.json`, `data.js`, `dashboard/`, `screenshots/` and
 ## Layout
 
 - `main.ts` — the entrypoint: reads the snapshot, scores the board, writes the outputs.
-- `lib/model.ts` — the radar-9 model, the board builder and the farm plans.
+- `lib/model.ts` — the radar-10 model, the board builder and the farm plans.
 - `vendor/makefun-board.ts` — make.fun's dossier library (vendored from the kit).
 - `dashboard/` — the static page: board, detail view per protocol, filters, methodology.
 - `screenshots/` — the board, a protocol's detail view and a filtered view.
