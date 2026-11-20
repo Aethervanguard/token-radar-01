@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-2). It reads window.RADAR (written beside dashboard/ by main.ts)
+// Token Radar's dashboard (radar-4). It reads window.RADAR (written beside dashboard/ by main.ts)
 // and renders the ranked board, a filterable table, a per-protocol detail view with the model's own
 // inputs and the protocol's farm plan. No network: every byte it shows is in data.js.
 (function () {
@@ -26,11 +26,14 @@
     if (days >= 365) return (days / 365).toFixed(1) + 'y';
     return Math.max(0, Math.round(days)) + 'd';
   }
-  // The model in one function (radar-2): the page recomputes a row from the snapshot figures and
+  // The model in one function (radar-4): the page recomputes a row from the snapshot figures and
   // checks the number board.json carries, so the page's code and the board's data are visibly the
-  // same arithmetic. Growth is asymmetric (a rise pays more than a fall costs) and maturity is a
-  // peak at two years, easing after: a protocol that has run four years with no token is worth less
-  // than a two-year protocol of the same size.
+  // same arithmetic. Each row is priced at its category's calibrated multiple (the median
+  // market-cap-to-TVL ratio of the live-token protocols in that category, or the global median
+  // where the category has too few trading tokens to earn its own), and the maturity peak is the
+  // median age of the live-token protocols. Growth is asymmetric (a rise pays more than a fall
+  // costs) and maturity is a peak, easing after: a protocol that has run far past the typical
+  // token age with no token is worth less than one at the peak age of the same size.
   function maturityOf(age, m) {
     var a = (age === null || age === undefined) ? m.unknown_age_days : age;
     if (a <= m.maturity_peak_days) return m.maturity_floor + (m.maturity_peak - m.maturity_floor) * (a / m.maturity_peak_days);
@@ -42,7 +45,8 @@
     var w = growth >= 0 ? model.growth_weight_up : model.growth_weight_down;
     var growthMult = 1 + (growth / 100) * w;
     var maturity = maturityOf(row.age_days, model);
-    return Math.max(1, Math.round(row.tvl_usd * model.base_multiple * growthMult * maturity));
+    var multiple = (row.category_multiple === null || row.category_multiple === undefined) ? model.base_multiple : row.category_multiple;
+    return Math.max(1, Math.round(row.tvl_usd * multiple * growthMult * maturity));
   }
 
   function el(tag, attrs) {
@@ -102,17 +106,41 @@
     if (s.length < 20) s = s + " Hold the position and check the protocol's own page.";
     return s;
   }
+  function secondActionFor(p, capital, chain) {
+    var c = (p.category || '').toLowerCase();
+    var name = p.name;
+    var half = Math.max(25, Math.round(capital / 2));
+    if (c.indexOf('lend') >= 0 || c.indexOf('cdp') >= 0 || c.indexOf('collateral') >= 0) return 'Supply a second $' + half + ' of a different asset to ' + name + ' on ' + chain + ' and keep both positions open.';
+    if (c.indexOf('dex') >= 0 || c.indexOf('yield') >= 0 || c.indexOf('leveraged farm') >= 0) return 'Add $' + half + ' of liquidity to a second pool on ' + name + ' and keep both positions open.';
+    if (c.indexOf('bridge') >= 0) return 'Bridge a second $' + half + ' of USDC through ' + name + ' to a different destination chain.';
+    if (c.indexOf('staking') >= 0 || c.indexOf('restak') >= 0) return 'Stake a second $' + half + ' of the staking asset through ' + name + ' and keep both receipts.';
+    if (c.indexOf('perpetual') >= 0 || c.indexOf('derivative') >= 0) return 'Open a second small position in the opposite direction on ' + name + ' as a hedge.';
+    if (c.indexOf('prediction') >= 0) return 'Place a second position on a different market outcome on ' + name + '.';
+    if (c.indexOf('curator') >= 0 || c.indexOf('allocator') >= 0) return 'Deposit $' + half + ' into a second ' + name + ' vault with a different risk profile.';
+    if (c.indexOf('stable') >= 0) return 'Mint a second tranche of $' + half + ' of the stable asset through ' + name + ' on ' + chain + '.';
+    if (c.indexOf('rwa') >= 0) return 'Mint a second tranche of $' + half + ' of the protocol\'s yield asset on ' + chain + ' and hold it.';
+    if (c.indexOf('insurance') >= 0) return 'Buy a second cover of $' + half + ' from ' + name + ' on ' + chain + ' for a different risk.';
+    return 'Make a second deposit of $' + half + ' into ' + name + ' on ' + chain + ' and keep both positions open.';
+  }
   function farmSteps(p) {
     var chain = chainOf(p);
     var capital = capitalFor(p);
     var hold = holdDaysFor(p.age_days);
+    var half = Math.max(25, Math.round(capital / 2));
+    var cross = (p.chains && p.chains.length > 1)
+      ? 'Bridge $' + half + ' of USDC to ' + p.chains[1] + ' through ' + p.name + ' and repeat the core action there, so the position counts on two chains.'
+      : 'Increase the position by $' + half + ' and confirm the new balance on ' + p.name + '\'s own page.';
     return [
       { text: 'Use a fresh wallet that holds only the funds you plan to farm, and keep its seed phrase offline.', cost: 'under $3 of gas for the first transaction', time: '5 minutes' },
       { text: actionFor(p, capital, chain), cost: '$' + capital + ' of capital and about $' + (capital >= 150 ? 8 : 4) + ' of gas', time: '15 minutes to set up' },
+      { text: secondActionFor(p, capital, chain), cost: '$' + half + ' of capital and about $3 of gas', time: '10 minutes to set up' },
+      { text: cross, cost: '$' + half + ' of capital and about $4 of gas', time: '10 minutes to set up' },
       { text: 'Make one qualifying action each week, such as a deposit, a borrow, a swap or a vote.', cost: 'about $2 of gas a week', time: '10 minutes a week' },
-      { text: 'Hold the position for at least ' + hold + ' days so the activity is counted in more than one snapshot.', cost: 'the $' + capital + ' stays in the position', time: hold + ' days' },
-      { text: "Before you withdraw, open the protocol's own points or rewards page and claim only from the link it publishes.", cost: 'no fee to check, and never pay to claim', time: '10 minutes' },
-      { text: 'Write the wallet, the dates and every transaction in a farm log so you can repeat the position or unwind it.', cost: 'nothing but the log', time: '5 minutes' }
+      { text: 'Check the protocol\'s TVL and your points balance once a week and write both numbers in the farm log, so a drop or a missed snapshot shows up before it costs the position.', cost: 'nothing but the log', time: '5 minutes a week' },
+      { text: 'Hold the position for at least ' + hold + ' days so the activity is counted in more than one snapshot.', cost: 'the $' + (capital + half) + ' stays in the position', time: hold + ' days' },
+      { text: 'Open ' + p.name + '\'s own points or rewards page, complete any quests it lists, and confirm the position is counted before the next snapshot.', cost: 'no fee to check, and never pay to claim', time: '10 minutes' },
+      { text: 'Write the unwind rule in the farm log before the first deposit: claim within a week of a launch, and unwind if the position falls below half its starting value, so the exit is decided before the excitement.', cost: 'nothing but the log', time: '5 minutes' },
+      { text: 'Claim only from the link ' + p.name + ' itself publishes, never from a link in a message, and write the wallet, the dates and every transaction in a farm log so you can repeat the position or unwind it.', cost: 'nothing but the log', time: '10 minutes' }
     ].map(stepText);
   }
 
@@ -192,6 +220,32 @@
         el('div', { class: 'fact' }, el('span', { text: 'Total implied value' }), el('b', { text: fmtUsd(totalImplied()) }), el('small', { text: 'across the whole board' })),
         el('div', { class: 'fact' }, el('span', { text: 'Prime signals' }), el('b', { text: String(signalCount('Prime')) }), el('small', { text: signalCount('Watch') + ' on Watch, the rest Early' }))
       )
+    );
+  }
+
+  function categoryChart() {
+    var byCat = {};
+    DATA.rows.forEach(function (r) {
+      var c = r.category || 'Other';
+      if (!byCat[c]) byCat[c] = { total: 0, count: 0, best: null };
+      byCat[c].total += r.implied_value_usd;
+      byCat[c].count += 1;
+      if (!byCat[c].best || r.implied_value_usd > byCat[c].best.implied_value_usd) byCat[c].best = r;
+    });
+    var cats = Object.keys(byCat).map(function (c) { return { name: c, total: byCat[c].total, count: byCat[c].count, best: byCat[c].best }; })
+      .sort(function (a, b) { return b.total - a.total; }).slice(0, 8);
+    var max = cats.length ? cats[0].total : 1;
+    return el('section', { class: 'panel catchart' },
+      el('h2', null, 'Where the implied value sits ', el('span', { text: 'by category' })),
+      el('p', { class: 'sub', text: 'Total implied launch value and protocol count per category, strongest first. Select a bar to filter the board to that category.' }),
+      el('div', { class: 'cat-rows' }, cats.map(function (c) {
+        return el('button', { type: 'button', class: 'cat-row', onclick: function () { state.category = c.name; writeHash(); render(); } },
+          el('span', { class: 'cat-name', text: c.name }),
+          el('span', { class: 'cat-bar', 'aria-hidden': 'true' }, el('i', { style: 'width:' + Math.max(3, Math.round((c.total / max) * 100)) + '%' })),
+          el('span', { class: 'cat-val num', text: fmtUsd(c.total) }),
+          el('span', { class: 'cat-count', text: c.count + ' protocol' + (c.count === 1 ? '' : 's') + ' · top ' + c.best.name })
+        );
+      }))
     );
   }
 
@@ -332,21 +386,46 @@
 
   function modelPanel() {
     var m = DATA.model;
+    var cal = DATA.calibration || {};
+    var cats = (cal.categories || []).filter(function (c) { return c.live_count >= (m.category_min_sample || 5); });
     return el('section', { class: 'panel model' },
       el('h2', { text: 'How implied value is computed' }),
       el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked.' }),
       el('div', { class: 'formula' },
-        'implied = round( tvl_usd x ' + m.base_multiple + ' x growth x maturity )\n' +
+        'implied = round( tvl_usd x category multiple x growth x maturity )\n' +
         'growth   = 1 + clamp(change_7d, ' + m.growth_floor + ', ' + m.growth_cap + ') / 100 x ' + m.growth_weight_up + ' when growing, x ' + m.growth_weight_down + ' when shrinking\n' +
         'maturity = ' + m.maturity_floor + ' at day 0, rising to ' + m.maturity_peak + ' at ' + m.maturity_peak_days + ' days, easing to ' + m.maturity_old + ' by ' + m.maturity_old_days + ' days'
       ),
       el('ul', null,
+        el('li', null, el('b', { text: 'The multiple is calibrated per category, not guessed. ' }), 'Each category is priced at the median market-cap-to-TVL ratio of its own live-token protocols (see the table below). A category earns its own multiple only when at least ' + (m.category_min_sample || 5) + ' of its tokens already trade; thinner categories use the global median ' + m.base_multiple + ' (median ' + (cal.median_ratio !== undefined ? cal.median_ratio : m.base_multiple) + ' across ' + (cal.live_count || 0) + ' live-token protocols), so one token never sets the multiple for a whole category.'),
+        el('li', null, el('b', { text: 'The maturity peak is calibrated too. ' }), 'Protocols in this snapshot typically trade a token by ' + m.maturity_peak_days + ' days (the median age of the live-token protocols), so a pre-token protocol is most likely to launch around then, and worth less the further it runs past that without one; the curve eases by ' + m.maturity_old_days + ' days, their 90th percentile.'),
         el('li', null, el('b', { text: 'Growth is asymmetric. ' }), 'A shrinking protocol still holds its TVL, so a fall costs less than a rise of the same size pays.'),
-        el('li', null, el('b', { text: 'Age is a peak, not a staircase. ' }), 'A protocol is most likely to launch once it has run about two years with no token; one that has run four years without launching has had four years to do it.'),
+        el('li', null, el('b', { text: 'Age is a peak, not a staircase. ' }), 'A protocol that has run far past the typical token age without launching has had that long to do it.'),
         el('li', null, el('b', { text: 'The signal is derived. ' }), 'Prime means top-quarter implied value, an age inside the launch window (180 to 1,095 days) and growth above -10%. Watch and Early follow from the same figures.'),
         el('li', null, el('b', { text: '"No token" means no token on record. ' }), 'The snapshot records no token for these protocols; it does not prove none exists. Implied value is an estimate, never a price.')
       ),
-      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the best record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. The early radar is every pre-token protocol below the watchlist floor, by TVL, and the live-token protocols are set aside with their market caps shown.' })
+      el('h3', { class: 'cal-title', text: 'Calibrated multiples by category' }),
+      el('p', { class: 'sub', text: 'Median market-cap-to-TVL ratio of the live-token protocols in each category, and the multiple the board uses. Categories with fewer than ' + (m.category_min_sample || 5) + ' trading tokens use the global median ' + m.base_multiple + '.' }),
+      el('div', { class: 'table-wrap' },
+        el('table', { class: 'cal' },
+          el('thead', null, el('tr', null,
+            el('th', { scope: 'col', text: 'Category' }),
+            el('th', { scope: 'col', text: 'Live tokens' }),
+            el('th', { scope: 'col', text: 'Median mcap / TVL' }),
+            el('th', { scope: 'col', text: 'Multiple used' })
+          )),
+          el('tbody', null, cats.map(function (c) {
+            return el('tr', null,
+              el('td', null, el('b', { text: c.category })),
+              el('td', { class: 'num', text: String(c.live_count) }),
+              el('td', { class: 'num', text: String(c.median_ratio) }),
+              el('td', { class: 'num', text: String(c.multiple) })
+            );
+          }))
+        )
+      ),
+      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the best record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. The early radar is every pre-token protocol below the watchlist floor, by TVL, and the live-token protocols are set aside with their market caps shown.' }),
+      el('p', { class: 'sub', text: (DATA.excluded_above_floor || 0) + ' pre-token protocols above the $' + Math.round(DATA.floor_usd / 1e6) + 'M floor are left off the board on purpose: the snapshot\'s own watchlist rule keeps them off it, because most are wrapped, staked or bridged products of tokens that already trade. The board separates protocols whose token already trades from those still to come.' })
     );
   }
 
@@ -363,6 +442,9 @@
     var recomputed = impliedOf(row, DATA.model);
     var m = DATA.model;
     var growth = Math.min(m.growth_cap, Math.max(m.growth_floor, row.change_7d === null || row.change_7d === undefined ? 0 : row.change_7d));
+    var catEntry = (DATA.calibration && DATA.calibration.categories ? DATA.calibration.categories : []).filter(function (c) { return c.category === (row.category || 'Other'); })[0];
+    var catOwn = catEntry && catEntry.live_count >= (m.category_min_sample || 5);
+    var multLabel = catOwn ? (row.category || 'Other') + ' median, calibrated' : 'global median';
     dialog.appendChild(el('div', { class: 'detail-head' },
       el('div', null,
         el('span', { class: 'brand-name', text: 'Rank ' + row.rank + ' of ' + DATA.board_size + ' · ' + row.signal + ' signal' }),
@@ -381,7 +463,7 @@
         el('div', null, el('span', { text: 'Maturity multiplier' }), el('b', { class: 'num', text: String(row.maturity_multiplier) })),
         el('div', { class: 'hl' }, el('span', { text: 'Implied value' }), el('b', { class: 'num', text: fmtUsd(row.implied_value_usd) }))
       ),
-      el('p', { class: 'sub', text: 'Model ' + DATA.model_version + ': TVL x ' + m.base_multiple + ' x (1 + ' + growth.toFixed(2) + '% x ' + (growth >= 0 ? m.growth_weight_up : m.growth_weight_down) + ') x maturity. The page recomputes this row as ' + fmtUsd(recomputed) + (recomputed === row.implied_value_usd ? ', the same number board.json carries.' : ', which differs from the board: the data would be stale.') + ' This is an estimate, not a price.' })
+      el('p', { class: 'sub', text: 'Model ' + DATA.model_version + ': TVL x ' + (row.category_multiple !== undefined ? row.category_multiple : m.base_multiple) + ' (' + multLabel + ') x (1 + ' + growth.toFixed(2) + '% x ' + (growth >= 0 ? m.growth_weight_up : m.growth_weight_down) + ') x maturity. The page recomputes this row as ' + fmtUsd(recomputed) + (recomputed === row.implied_value_usd ? ', the same number board.json carries.' : ', which differs from the board: the data would be stale.') + ' This is an estimate, not a price.' })
     ));
     dialog.appendChild(el('section', { class: 'detail-section' },
       el('h3', { text: 'Farm plan' }),
@@ -412,6 +494,7 @@
     shell.appendChild(header());
     shell.appendChild(lede());
     shell.appendChild(spotlight());
+    shell.appendChild(categoryChart());
     shell.appendChild(controls());
     shell.appendChild(state.tab === 'pre-token' ? boardTable() : liveTable());
     if (state.tab === 'pre-token') shell.appendChild(modelPanel());
