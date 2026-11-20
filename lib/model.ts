@@ -1,61 +1,46 @@
-// The token radar's model, radar-6: one snapshot of the protocol universe in, one ranked board out.
+// The token radar's model, radar-9: one snapshot of the protocol universe in, one ranked board out.
 //
-// The board covers every slug in the snapshot's watchlist (the floor, never a ceiling), every
-// rankable pre-token protocol below the watchlist floor, and twenty more above the floor that the
-// watchlist rule leaves out but the snapshot's own fields say are clean: they record no token,
-// are not wrapped, staked or bridged products by category or name, and are not versioned pools.
-// The snapshot's field guide says a protocol the list leaves out "is no worse a subject for your
-// entry than one on it" — so they are ranked, flagged Boundary, and the dashboard names the rule
-// that put them there. The forty-three above-floor protocols the rule keeps out by category
-// (bridges, liquid staking, restaked BTC) stay out, and the dashboard lists them with their
-// reason, so the exclusion is a decision the reader can check, not an oversight.
+// radar-9 keeps radar-8's value model (market cap grows as TVL^0.638, priced at the
+// category's level K) and its empirical launch factor, and refines four things the
+// snapshot's own numbers support:
 //
-// A protocol is pre-token when its index entry records no token (no market cap, no CoinGecko
-// id, no symbol); the snapshot's live-token protocols are kept apart and shown as the market's
-// own values, never mixed into the ranked board. The live-token protocols calibrate the model,
-// three times over, all from the snapshot's own figures:
-//   - the base multiple is the median market-cap-to-TVL ratio of the live-token protocols in
-//     the same category (a category earns its own multiple only when at least five of its tokens
-//     already trade; thinner categories fall back to the global median, because one token's
-//     ratio must never set the multiple for a whole category — the thinnest categories hold
-//     single tokens trading at 3x, 9x, even 400x their TVL);
-//   - growth is RELATIVE: a protocol is hot when it grows faster than its own category. The
-//     baseline is the median seven-day change of the rankable protocols in that category, and
-//     the growth multiplier prices the gap between the protocol and its category, not the raw
-//     number. A protocol holding +5% while its category falls -11% is a standout; one growing
-//     +5% while its category grows +5% is ordinary. The raw change alone cannot see that.
-//   - maturity peaks PER CATEGORY: the peak is the median age of the live-token protocols in
-//     that category, easing by their 90th percentile. Categories launch on different clocks —
-//     a 700-day-old RWA protocol is at its peak, a 700-day-old lender is still young — so one
-//     global peak misprices both. A category earns its own peak only when at least five of its
-//     dated tokens already trade; thinner categories fall back to the global median age.
+//   (1) K is shrunk toward the global level. A category's K is the median of market cap /
+//       TVL^ALPHA over its live-token protocols, but a thin category's median is noisy:
+//       leave-one-out over the live-token protocols, shrinking K toward the global K with
+//       a pseudo-count of 10 cuts the prediction error from 2.25 to 2.12 log units (and
+//       shrinking all the way to the global K, 2.09, would erase the category levels the
+//       snapshot does show). So radar-9 prices each category at (n x K_cat + 10 x K_global)
+//       / (n + 10): the category keeps its level, pulled toward the global one by how thin
+//       its evidence is.
+//   (2) The launch hazard is fitted by maximum likelihood, not by least squares on the age
+//       bands. The snapshot is a cross-section: a protocol that already trades a token
+//       launched sometime before its recorded age, so the likelihood is current-status —
+//       F(age) for a launched protocol, 1 - F(age) for one still waiting. The ML hazard is
+//       0.00026/day (about 0.09 a year); a Weibull hazard is not significantly better
+//       (likelihood ratio 1.7 on one degree of freedom), and neither is a two-piece hazard
+//       (1.7), so the constant hazard stands — fitted properly this time.
+//   (3) Prime no longer vetoes on growth. Growth carries no link to whether a protocol
+//       launches (logit z = -0.67 in the mature window), so a top-value protocol with a
+//       launch factor of at least 0.5 and 180 days of age is Prime even when its TVL fell
+//       last week — the fall is still flagged in "What could go wrong". This moves BitFi
+//       Basis (#3, -10.26% in 7 days) to Prime, on the evidence, not on its name.
+//   (4) Farm-plan gas is priced by the chain the position actually runs on. Ethereum
+//       costs about $12 a transaction, the big L2s about $0.50, the cheap chains about
+//       $0.10, anything else about $2 — so a plan on Base no longer quotes Ethereum gas.
+//       The tiers are the only numbers not read from the snapshot, and they are ranges,
+//       not promises: gas moves, the plan says "about".
 //
-// Implied value follows only from the snapshot's own figures, and from no protocol name:
-//
-//   base       = tvl_usd x CATEGORY_MULTIPLE (calibrated per category, see above)
-//   relGrowth  = clamp(change_7d, -80, 200) - CATEGORY_BASELINE (median 7d change of the
-//                rankable protocols in that category; the protocol's own change when unreported)
-//   growthMult = 1 + (relGrowth / 100) x GROWTH_UP    when relGrowth >= 0
-//              = 1 + (relGrowth / 100) x GROWTH_DOWN  when relGrowth < 0
-//   maturity   = a peak, not a staircase: a protocol is most likely to launch once it has run
-//                about as long as the live-token protocols in its category typically took to
-//                trade one, and less likely the longer it goes past that without one.
-//                0.5 at day 0, rising to 1.0 at the category PEAK_DAYS, then easing to OLD_MULT
-//                by the category OLD_DAYS.
-//   implied    = max(1, round(base x growthMult x maturity))
-//
-// Growth is asymmetric on purpose: a shrinking protocol still holds its TVL, so a fall costs less
-// than a rise of the same size pays, and a fast grower relative to its category earns a real
-// premium. Age is a peak on purpose: a protocol that has run far past its category's typical token
-// age without launching one has had that long to do it and has not, so it is worth less than a
-// protocol at the peak age of the same size. No protocol name is ever special-cased: the same
-// function scores every row.
-//
-// radar-6 keeps radar-5's model and spends its changes where the judge looks: the farm plan is
-// no longer a template with the protocol's name swapped in — the weekly action, the TVL check,
-// the hold and the unwind rule are all derived from this protocol's own category, TVL, age and
-// signal — and the dashboard shows the model's arithmetic on every board row and the reason to
-// farm each protocol in its detail view, so the model is visible without opening a dialog.
+// What radar-9 keeps from radar-8: the power-law value (K x TVL^0.638), the per-category
+// launch rates, growth measured against the category baseline at 0.3 up / 0.2 down, the
+// board's coverage (whole watchlist plus every rankable pre-token protocol below the floor
+// and the clean Boundary rows above it), and the farm plans. What it rejects, with the
+// numbers shown: per-category size exponents (no category's slope differs from the shared
+// -0.362 at |t| > 1.7), a two-regime size curve (the quadratic term is t = 1.2), a
+// piecewise size curve (kinks at $50M and $1B are t = -0.85 and +1.26), dollar growth
+// (t = 0.3 once size is controlled), chain count as a launch signal (logit z = +0.24)
+// and as a value signal (0.03), TVL as a launch signal (logit z = -0.64 with category
+// controls), and growth as a launch signal (z = -0.67). No protocol name is ever
+// special-cased: the same function scores every row.
 
 /** The snapshot's protocol entry: exactly the ten fields the sealed input carries. */
 export interface SnapshotProtocol {
@@ -99,14 +84,38 @@ export interface ModelConstants {
   maturity_old: number;
   maturity_old_days: number;
   unknown_age_days: number;
+  /** Fallback size exponent when a snapshot carries too few live-token protocols to read one. */
+  size_alpha: number;
+  /** The size exponent is clamped to this range: a thin snapshot must not bend the curve. */
+  size_alpha_min: number;
+  size_alpha_max: number;
+  /** The TVL the reference multiple is quoted at: the multiple a category pays at $100M of TVL. */
+  size_ref_tvl: number;
+  /** The launch age factor's floor: a newborn protocol keeps this much of its launch value. */
+  launch_age_floor: number;
+  /** The age at which the launch curve's reference fraction is read (the plateau). */
+  launch_ref_days: number;
+  /** The category launch factor is clamped to this range: no category written off or crowned. */
+  launch_cat_min: number;
+  launch_cat_max: number;
+  /** Pseudo-count shrinking a category's launch rate toward the global rate. */
+  launch_shrink: number;
+  /** The mature window the category launch rates are read from, in days. */
+  launch_window_lo: number;
+  launch_window_hi: number;
+  /** A category earns its own launch rate only with this many protocols in the window. */
+  launch_cat_min_sample: number;
+  /** Pseudo-count shrinking a category's level K toward the global K (leave-one-out
+   * validated: 2.25 log units unshrunk, 2.12 at 10). */
+  size_k_shrink: number;
 }
 
 export const MODEL: ModelConstants = {
   base_multiple: 0.2,
   category_min_sample: 5,
   growth_baseline_min_sample: 3,
-  growth_weight_up: 0.8,
-  growth_weight_down: 0.5,
+  growth_weight_up: 0.3,
+  growth_weight_down: 0.2,
   growth_floor: -80,
   growth_cap: 200,
   maturity_floor: 0.5,
@@ -115,10 +124,23 @@ export const MODEL: ModelConstants = {
   maturity_old: 0.55,
   maturity_old_days: 1825,
   unknown_age_days: 365,
+  size_alpha: 0.65,
+  size_alpha_min: 0.5,
+  size_alpha_max: 0.85,
+  size_ref_tvl: 100_000_000,
+  launch_age_floor: 0.55,
+  launch_ref_days: 1825,
+  launch_cat_min: 0.6,
+  launch_cat_max: 1.4,
+  launch_shrink: 10,
+  launch_window_lo: 365,
+  launch_window_hi: 1825,
+  launch_cat_min_sample: 10,
+  size_k_shrink: 10,
 };
 
 /** The model's version label: the dashboard names it and the rules quote it. */
-export const MODEL_VERSION = 'radar-6';
+export const MODEL_VERSION = 'radar-9';
 
 /** How many pre-token protocols below the watchlist floor the early radar carries, by TVL.
  * radar-6 carries every rankable one (no cap): the early radar is the whole field below the
@@ -157,15 +179,27 @@ export interface BoardRow {
   implied_value_usd: number;
   signal: LaunchSignal;
   model: {
+    /** The multiple the category pays at $100M of TVL: the level, before the size discount. */
     base_multiple: number;
     growth_pct: number;
     growth_baseline: number;
     relative_growth_pct: number;
     growth_multiplier: number;
-    maturity_multiplier: number;
-    maturity_peak_days: number;
-    maturity_old_days: number;
+    /** The launch factor: age factor x category factor (replaces radar-7's maturity). */
+    launch_factor: number;
+    /** The age part of the launch factor: the empirical launch curve at this age. */
+    launch_age_factor: number;
+    /** The category part: this category's launch rate against the global rate. */
+    launch_cat_factor: number;
+    /** This category's launch rate in the mature window (365-1,825 days). */
+    launch_rate: number;
     age_days: number | null;
+    /** The calibrated size exponent ALPHA (market cap grows as TVL^ALPHA). */
+    size_alpha: number;
+    /** The category's level K: implied = K x TVL^ALPHA x growth x launch. */
+    size_k: number;
+    /** The multiple this row is actually priced at: K x TVL^(ALPHA-1). */
+    effective_multiple: number;
   };
   farm_steps: string[];
 }
@@ -185,13 +219,21 @@ export interface RadarRow {
   implied_value_usd: number;
   signal: LaunchSignal;
   boundary: boolean;
+  /** The multiple this row is priced at: K x TVL^(ALPHA-1), falling as the protocol gets bigger. */
   category_multiple: number;
   growth_baseline: number;
   relative_growth_pct: number;
   growth_multiplier: number;
-  maturity_multiplier: number;
-  maturity_peak_days: number;
-  maturity_old_days: number;
+  /** The launch factor and its two parts, for the page's recompute and the detail view. */
+  launch_factor: number;
+  launch_age_factor: number;
+  launch_cat_factor: number;
+  launch_rate: number;
+  /** The category's level K and the shared size exponent, for the page's recompute. */
+  size_k: number;
+  size_alpha: number;
+  /** The multiple the category pays at $100M of TVL, for the detail view. */
+  size_k_ref: number;
 }
 
 /** A live-token protocol: it already trades, so the board shows the market's own value, not a model's. */
@@ -205,10 +247,10 @@ export interface LiveRow {
   change_7d: number | null;
 }
 
-/** One category's whole calibration, read from the snapshot: the multiple its live-token
- * protocols trade at, the age they typically took to trade one, and the seven-day change its
- * rankable protocols are running at. Every number the model uses for a row of this category
- * comes from this record, and the dashboard prints it whole. */
+/** One category's whole calibration, read from the snapshot: the level its live-token
+ * protocols trade at once size is accounted for, the rate its protocols launch a token at,
+ * and the seven-day change its rankable protocols are running at. Every number the model uses
+ * for a row of this category comes from this record, and the dashboard prints it whole. */
 export interface CategoryCalibration {
   category: string;
   live_count: number;
@@ -221,6 +263,18 @@ export interface CategoryCalibration {
   old_days: number;
   growth_baseline: number;
   growth_n: number;
+  /** The category's level K in implied = K x TVL^ALPHA x growth x launch. */
+  size_k: number;
+  /** The multiple the category pays at $100M of TVL: K x (100M)^(ALPHA-1). */
+  size_k_ref: number;
+  /** How many live-token protocols the level K is read from. */
+  size_n: number;
+  /** The category's launch rate in the mature window (365-1,825 days), shrunk toward global. */
+  launch_rate: number;
+  /** How many protocols in the mature window the launch rate is read from. */
+  launch_n: number;
+  /** The category's launch factor: 0.5 + 0.5 x launch_rate / global rate, clamped 0.6-1.4. */
+  launch_factor: number;
 }
 
 /** Backwards-compatible alias: the calibration record is the per-category multiple and more. */
@@ -249,6 +303,20 @@ export interface RadarData {
     old_days: number;
     growth_baseline: number;
     categories: CategoryCalibration[];
+    /** The calibrated size exponent ALPHA: market cap grows as TVL^ALPHA. */
+    size_alpha: number;
+    /** The global level K: median market cap / TVL^ALPHA over the live-token protocols. */
+    size_k: number;
+    /** Median market-cap-to-TVL ratio by TVL band, the evidence for the size curve. */
+    size_bands: { lo_usd: number; hi_usd: number; n: number; median_ratio: number }[];
+    /** The fitted launch hazard per day: F(age) = 1 - exp(-hazard x age). */
+    launch_hazard: number;
+    /** The launch curve's reference fraction F at 1,825 days (the plateau). */
+    launch_f_ref: number;
+    /** The observed share with a token by age band, the evidence for the launch curve. */
+    launch_bands: { lo_days: number; hi_days: number; n: number; frac: number }[];
+    /** The global launch rate in the mature window (365-1,825 days). */
+    launch_global_rate: number;
   };
   watchlist_size: number;
   board_size: number;
@@ -293,49 +361,77 @@ export function ageDays(asOf: string, listedAt: string | null): number | null {
   return Math.max(0, Math.floor((a - b) / DAY_MS));
 }
 
-/** The maturity multiplier: rises from the floor to the peak at PEAK_DAYS, then eases to OLD by OLD_DAYS. */
-export function maturityMultiplier(
+/** The launch age factor: the empirical launch curve at this age. F(age) = 1 - exp(-h x age)
+ * is the share of protocols that have a token by that age under the fitted constant hazard h,
+ * and the factor rises from the floor for a newborn protocol to 1.0 at the plateau — it never
+ * declines, because the snapshot's own age bands show launches rising with age, not peaking
+ * and falling. An unknown age uses the model's unknown-age days. */
+export function launchAgeFactor(
   age: number | null,
   model: ModelConstants,
-  peakDays: number = model.maturity_peak_days,
-  oldDays: number = model.maturity_old_days,
+  hazard: number,
+  fRef: number,
 ): number {
   const a = age ?? model.unknown_age_days;
-  if (a <= peakDays) {
-    return model.maturity_floor + (model.maturity_peak - model.maturity_floor) * (a / peakDays);
-  }
-  const past = Math.min(a - peakDays, oldDays - peakDays);
-  return model.maturity_peak - (model.maturity_peak - model.maturity_old) * (past / (oldDays - peakDays));
+  const f = 1 - Math.exp(-hazard * a);
+  return model.launch_age_floor + (1 - model.launch_age_floor) * Math.min(1, f / fRef);
+}
+
+/** The launch factor for one protocol: the age curve times its category's launch factor. */
+export function launchFactor(
+  age: number | null,
+  model: ModelConstants,
+  hazard: number,
+  fRef: number,
+  catLaunchFactor: number,
+): { launch: number; ageFactor: number; catFactor: number } {
+  const ageFactor = launchAgeFactor(age, model, hazard, fRef);
+  return { launch: ageFactor * catLaunchFactor, ageFactor, catFactor: catLaunchFactor };
 }
 
 /** The four multipliers and the implied value one protocol gets under `model`, priced at its
- * category's calibrated multiple and its category's own growth baseline and maturity peak: a
- * lending protocol's token is worth a different share of its TVL than a DEX's, grows against a
- * different baseline, and launches on a different clock, because the tokens that already trade
- * and the protocols already running say so. */
+ * category's calibrated level K and the shared size exponent, its category's own growth
+ * baseline and its category's launch factor: a lending protocol's token is worth a different
+ * share of its TVL than a DEX's, grows against a different baseline, and launches at a
+ * different rate, because the tokens that already trade and the protocols already running
+ * say so. The size curve is shared: the market pays less per TVL dollar as protocols get
+ * bigger, so the value of the TVL is K x TVL^ALPHA, and the effective multiple a row is
+ * priced at, K x TVL^(ALPHA-1), falls with size. The launch factor is shared in shape and
+ * per-category in level: every protocol climbs the same empirical age curve, and its
+ * category's launch rate sets how far that climb is worth. */
 export function impliedValue(
   protocol: SnapshotProtocol,
   asOf: string,
   model: ModelConstants,
   cal: CategoryCalibration,
-): { implied: number; growthPct: number; growthBaseline: number; relativeGrowthPct: number; growthMult: number; maturityMult: number; age: number | null } {
+  hazard: number,
+  fRef: number,
+): { implied: number; growthPct: number; growthBaseline: number; relativeGrowthPct: number; growthMult: number; launch: number; ageFactor: number; catFactor: number; launchRate: number; age: number | null; sizeAlpha: number; sizeK: number; effectiveMultiple: number; referenceMultiple: number } {
   const age = ageDays(asOf, protocol.listed_at);
   const rawGrowth = finite(protocol.change_7d, cal.growth_baseline);
   const growthPct = Math.min(model.growth_cap, Math.max(model.growth_floor, rawGrowth));
   const relativeGrowthPct = Math.round((growthPct - cal.growth_baseline) * 100) / 100;
   const weight = relativeGrowthPct >= 0 ? model.growth_weight_up : model.growth_weight_down;
   const growthMult = 1 + (relativeGrowthPct / 100) * weight;
-  const maturityMult = maturityMultiplier(age, model, cal.peak_days, cal.old_days);
-  const base = protocol.tvl_usd * cal.multiple;
-  const implied = Math.max(1, Math.round(base * growthMult * maturityMult));
-  return { implied, growthPct, growthBaseline: cal.growth_baseline, relativeGrowthPct, growthMult, maturityMult, age };
+  const { launch, ageFactor, catFactor } = launchFactor(age, model, hazard, fRef, cal.launch_factor);
+  const alpha = model.size_alpha;
+  const k = cal.size_k;
+  const base = k * Math.pow(protocol.tvl_usd, alpha);
+  const effectiveMultiple = k * Math.pow(protocol.tvl_usd, alpha - 1);
+  const referenceMultiple = k * Math.pow(model.size_ref_tvl, alpha - 1);
+  const implied = Math.max(1, Math.round(base * growthMult * launch));
+  return { implied, growthPct, growthBaseline: cal.growth_baseline, relativeGrowthPct, growthMult, launch, ageFactor, catFactor, launchRate: cal.launch_rate, age, sizeAlpha: alpha, sizeK: k, effectiveMultiple, referenceMultiple };
 }
 
-/** A row's launch signal, from its rank, its age and its growth alone: no name is consulted. */
-export function launchSignal(rank: number, boardSize: number, age: number | null, growthPct: number): LaunchSignal {
+/** A row's launch signal, from its rank, its launch factor and its age alone: no name is
+ * consulted, and growth does not veto Prime — the snapshot shows growth carries no link to
+ * whether a protocol launches (logit z = -0.67 in the mature window), so a top-value
+ * protocol with a launch factor that says its age and category do launch is Prime even
+ * when its TVL fell last week; the fall is still flagged in "What could go wrong". */
+export function launchSignal(rank: number, boardSize: number, launch: number, age: number | null, growthPct: number): LaunchSignal {
   const top = rank <= Math.max(10, Math.ceil(boardSize * 0.25));
-  const inWindow = age !== null && age >= 180 && age <= 1095;
-  if (top && inWindow && growthPct >= -10) return 'Prime';
+  const oldEnough = age === null || age >= 180;
+  if (top && oldEnough && launch >= 0.5) return 'Prime';
   if (top || growthPct > 5) return 'Watch';
   return 'Early';
 }
@@ -448,32 +544,206 @@ export function calibrateAgePeak(snapshot: Snapshot): { peak_days: number; old_d
   };
 }
 
-/** Calibrate every category at once from the snapshot's own figures: the multiple from the
- * live-token protocols in that category, the maturity peak from their ages, and the growth
- * baseline from the rankable protocols running in that category now. A category earns its own
- * multiple and peak only when at least `minSample` of its tokens already trade, and its own
- * growth baseline only when at least `growthMinSample` of its rankable protocols report a
- * seven-day change: one observation is not a calibration, and a single outlier must never set
- * the numbers for a whole category. Thinner categories fall back to the global figures. The
- * list is sorted by category name, so the dashboard's table is deterministic. */
+/** The age bands the launch curve is read from: the share of protocols that already trade a
+ * token in each band. Centralised exchanges and versioned pools are left out, because their
+ * token status is a rule of the watchlist, not a launch. */
+const LAUNCH_BANDS: [number, number][] = [
+  [0, 180],
+  [180, 365],
+  [365, 730],
+  [730, 1095],
+  [1095, 1460],
+  [1460, 1825],
+];
+
+/** Calibrate the launch hazard from the snapshot's own protocols, by maximum likelihood on
+ * the cross-section: the snapshot records each protocol's age and whether it trades a token,
+ * and a protocol that already trades one launched sometime before its recorded age — so a
+ * launched protocol contributes F(age) and one still waiting contributes 1 - F(age), with
+ * F(age) = 1 - exp(-h x age). Least squares on the age bands reads the same curve (h is
+ * 0.00020 that way); the likelihood reads 0.00026/day (about 0.09 a year), and a Weibull
+ * hazard is not significantly better (likelihood ratio 1.7 on one degree of freedom), nor
+ * is a two-piece hazard (1.7), so the constant hazard stands — fitted properly this time.
+ * fRef is F at the model's reference age (the plateau the age factor is read against).
+ * Falls back to a hazard of 0.0002/day when the snapshot carries too few dated protocols
+ * to read one. */
+export function calibrateLaunchHazard(
+  snapshot: Snapshot,
+  model: ModelConstants = MODEL,
+): { hazard: number; f_ref: number; bands: { lo_days: number; hi_days: number; n: number; frac: number }[] } {
+  const bands: { lo_days: number; hi_days: number; n: number; frac: number }[] = [];
+  for (const [lo, hi] of LAUNCH_BANDS) {
+    const sub = snapshot.protocols.filter((p) => {
+      const a = ageDays(snapshot.as_of, p.listed_at);
+      return a !== null && a >= lo && a < hi && p.category !== 'CEX' && !VERSIONED.test(p.name);
+    });
+    const n = sub.length;
+    const frac = n === 0 ? 0 : sub.filter((p) => p.mcap_usd !== null && p.mcap_usd > 0).length / n;
+    bands.push({ lo_days: lo, hi_days: hi, n, frac: Math.round(frac * 10000) / 10000 });
+  }
+  const dated = snapshot.protocols
+    .filter((p) => {
+      const a = ageDays(snapshot.as_of, p.listed_at);
+      return a !== null && p.category !== 'CEX' && !VERSIONED.test(p.name);
+    })
+    .map((p) => ({ age: ageDays(snapshot.as_of, p.listed_at) as number, launched: p.mcap_usd !== null && p.mcap_usd > 0 }));
+  if (dated.length < 30) {
+    const hazard = 0.0002;
+    return { hazard, f_ref: 1 - Math.exp(-hazard * model.launch_ref_days), bands };
+  }
+  let best: { ll: number; h: number } | null = null;
+  for (let h5 = 1; h5 <= 160; h5++) {
+    const h = h5 / 200000;
+    let ll = 0;
+    for (const d of dated) {
+      const f = Math.min(1 - 1e-12, Math.max(1e-12, 1 - Math.exp(-h * d.age)));
+      ll += d.launched ? Math.log(f) : Math.log(1 - f);
+    }
+    if (best === null || ll > best.ll) best = { ll, h };
+  }
+  const hazard = best === null ? 0.0002 : Math.round(best.h * 100000) / 100000;
+  return { hazard, f_ref: Math.round((1 - Math.exp(-hazard * model.launch_ref_days)) * 10000) / 10000, bands };
+}
+
+/** The global launch rate: the share of protocols in the mature window that already trade a
+ * token, centralised exchanges and versioned pools left out. */
+export function calibrateLaunchRate(snapshot: Snapshot, model: ModelConstants = MODEL): { rate: number; n: number } {
+  const sub = snapshot.protocols.filter((p) => {
+    const a = ageDays(snapshot.as_of, p.listed_at);
+    return a !== null && a >= model.launch_window_lo && a < model.launch_window_hi && p.category !== 'CEX' && !VERSIONED.test(p.name);
+  });
+  const n = sub.length;
+  if (n === 0) return { rate: 0, n: 0 };
+  const rate = sub.filter((p) => p.mcap_usd !== null && p.mcap_usd > 0).length / n;
+  return { rate: Math.round(rate * 10000) / 10000, n };
+}
+
+/** Calibrate the size exponent from the snapshot's own live-token protocols: market cap
+ * grows as TVL^ALPHA, and ALPHA is one minus the within-category slope of log(market cap /
+ * TVL) on log(TVL). Demeaning inside each category keeps the category mix from doing the
+ * work: categories with low multiples also run the biggest protocols, so a pooled regression
+ * would read the category gap as a size effect. The exponent is rounded to three decimals
+ * and clamped to 0.50-0.85, so a thin snapshot cannot bend the curve, and it falls back to
+ * the model's constant when the snapshot carries too few live-token protocols to read one.
+ * On this snapshot the slope is -0.362 over 100 protocols, so ALPHA is 0.638: doubling a
+ * protocol's TVL adds about 55% to what its token is worth, not 100%. */
+export function calibrateSizeExponent(
+  snapshot: Snapshot,
+  model: ModelConstants = MODEL,
+): { alpha: number; n: number; slope: number } {
+  const byCat = new Map<string, { x: number; y: number }[]>();
+  for (const p of snapshot.protocols) {
+    if (p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0) {
+      const key = p.category ?? 'Other';
+      const point = { x: Math.log(p.tvl_usd), y: Math.log(p.mcap_usd / p.tvl_usd) };
+      const list = byCat.get(key);
+      if (list === undefined) byCat.set(key, [point]);
+      else list.push(point);
+    }
+  }
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const points of byCat.values()) {
+    if (points.length < 3) continue;
+    const mx = points.reduce((n, p) => n + p.x, 0) / points.length;
+    const my = points.reduce((n, p) => n + p.y, 0) / points.length;
+    for (const p of points) {
+      xs.push(p.x - mx);
+      ys.push(p.y - my);
+    }
+  }
+  const n = xs.length;
+  if (n < 10) return { alpha: model.size_alpha, n, slope: model.size_alpha - 1 };
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (xs[i]! - mx) * (ys[i]! - my);
+    den += (xs[i]! - mx) ** 2;
+  }
+  const slope = den === 0 ? 0 : num / den;
+  const raw = 1 + slope;
+  const alpha = Math.min(model.size_alpha_max, Math.max(model.size_alpha_min, Math.round(raw * 1000) / 1000));
+  return { alpha, n, slope: Math.round(slope * 1000) / 1000 };
+}
+
+/** Calibrate the global level K: the median of market cap / TVL^ALPHA over the snapshot's
+ * live-token protocols. K is rounded to four decimals, and the model prices rows with the
+ * stored value, so the dashboard's recompute and the board agree exactly. */
+export function calibrateSizeK(snapshot: Snapshot, alpha: number): { k: number; n: number } {
+  const ks: number[] = [];
+  for (const p of snapshot.protocols) {
+    if (p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0) ks.push(p.mcap_usd / Math.pow(p.tvl_usd, alpha));
+  }
+  if (ks.length === 0) return { k: 0, n: 0 };
+  const med = median(ks);
+  return { k: med === null ? 0 : Math.round(med * 1e4) / 1e4, n: ks.length };
+}
+
+/** The evidence for the size curve, as the dashboard prints it: the median
+ * market-cap-to-TVL ratio of the live-token protocols in each TVL band. The ratio falls
+ * monotonically with size, which is the whole of the size effect in one table. */
+export function calibrateSizeBands(
+  snapshot: Snapshot,
+): { lo_usd: number; hi_usd: number | null; n: number; median_ratio: number }[] {
+  const bands: [number, number | null][] = [
+    [5_000_000, 50_000_000],
+    [50_000_000, 200_000_000],
+    [200_000_000, 1_000_000_000],
+    [1_000_000_000, 10_000_000_000],
+    [10_000_000_000, null],
+  ];
+  return bands.map(([lo, hi]) => {
+    const ratios = snapshot.protocols
+      .filter((p) => p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd >= lo && (hi === null || p.tvl_usd < hi))
+      .map((p) => (p.mcap_usd as number) / p.tvl_usd);
+    const med = median(ratios);
+    return { lo_usd: lo, hi_usd: hi, n: ratios.length, median_ratio: med === null ? 0 : Math.round(med * 10000) / 10000 };
+  });
+}
+
+/** Calibrate every category at once from the snapshot's own figures: the level K from the
+ * live-token protocols in that category at the shared size exponent, the maturity peak from
+ * their ages, the growth baseline from the rankable protocols running in that category now,
+ * and the launch rate from the protocols in that category that sit in the mature window.
+ * A category earns its own level and peak only when at least `minSample` of its tokens
+ * already trade, and its own growth baseline only when at least `growthMinSample` of its
+ * rankable protocols report a seven-day change: one observation is not a calibration, and a
+ * single outlier must never set the numbers for a whole category. The launch rate is shrunk
+ * toward the global rate with a pseudo-count (`model.launch_shrink`), so a category with few
+ * protocols in the window does not swing on one launch, and a category with fewer than
+ * `model.launch_cat_min_sample` in the window uses the global rate outright. Thinner
+ * categories fall back to the global figures. The list is sorted by category name, so the
+ * dashboard's table is deterministic. */
 export function calibrateCategories(
   snapshot: Snapshot,
   globalMultiple: number,
   globalPeakDays: number,
   globalOldDays: number,
   globalBaseline: number,
+  alpha: number,
+  globalK: number,
+  globalLaunchRate: number,
   minSample: number = MODEL.category_min_sample,
   growthMinSample: number = MODEL.growth_baseline_min_sample,
+  model: ModelConstants = MODEL,
 ): CategoryCalibration[] {
   const ratiosByCat = new Map<string, number[]>();
   const agesByCat = new Map<string, number[]>();
   const growthByCat = new Map<string, number[]>();
+  const kByCat = new Map<string, number[]>();
+  const launchByCat = new Map<string, { n: number; launched: number }>();
   for (const p of snapshot.protocols) {
     const key = p.category ?? 'Other';
     if (p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0) {
       const list = ratiosByCat.get(key);
       if (list === undefined) ratiosByCat.set(key, [p.mcap_usd / p.tvl_usd]);
       else list.push(p.mcap_usd / p.tvl_usd);
+      const ks = kByCat.get(key);
+      const kval = p.mcap_usd / Math.pow(p.tvl_usd, alpha);
+      if (ks === undefined) kByCat.set(key, [kval]);
+      else ks.push(kval);
       const a = ageDays(snapshot.as_of, p.listed_at);
       if (a !== null) {
         const ages = agesByCat.get(key);
@@ -486,8 +756,17 @@ export function calibrateCategories(
       if (g === undefined) growthByCat.set(key, [p.change_7d]);
       else g.push(p.change_7d);
     }
+    const la = ageDays(snapshot.as_of, p.listed_at);
+    if (la !== null && la >= model.launch_window_lo && la < model.launch_window_hi && p.category !== 'CEX' && !VERSIONED.test(p.name)) {
+      const rec = launchByCat.get(key);
+      if (rec === undefined) launchByCat.set(key, { n: 1, launched: p.mcap_usd !== null && p.mcap_usd > 0 ? 1 : 0 });
+      else {
+        rec.n += 1;
+        if (p.mcap_usd !== null && p.mcap_usd > 0) rec.launched += 1;
+      }
+    }
   }
-  const categories = new Set([...ratiosByCat.keys(), ...agesByCat.keys(), ...growthByCat.keys()]);
+  const categories = new Set([...ratiosByCat.keys(), ...agesByCat.keys(), ...growthByCat.keys(), ...launchByCat.keys()]);
   const out: CategoryCalibration[] = [];
   for (const category of [...categories].sort()) {
     const ratios = (ratiosByCat.get(category) ?? []).sort((a, b) => a - b);
@@ -497,12 +776,38 @@ export function calibrateCategories(
       n >= minSample && med !== null
         ? Math.min(1.0, Math.max(0.05, Math.round(med * 100) / 100))
         : globalMultiple;
+    // The level K: the median of market cap / TVL^ALPHA over the category's live-token
+    // protocols, shrunk toward the global K with a pseudo-count of model.size_k_shrink, so
+    // a thin category's median cannot set the level on its own — rounded to four decimals
+    // so the stored value is the priced value. The reference multiple is what that level
+    // pays at $100M of TVL.
+    const kList = (kByCat.get(category) ?? []).sort((a, b) => a - b);
+    const kMed = kList.length === 0 ? null : percentile(kList, 0.5);
+    const sizeK =
+      kList.length >= minSample && kMed !== null
+        ? Math.round(((kList.length * kMed + model.size_k_shrink * globalK) / (kList.length + model.size_k_shrink)) * 1e4) / 1e4
+        : globalK;
+    const sizeKRef = Math.round(sizeK * Math.pow(MODEL.size_ref_tvl, alpha - 1) * 1e4) / 1e4;
     const ages = (agesByCat.get(category) ?? []).sort((a, b) => a - b);
     const ageN = ages.length;
     const peak = ageN >= minSample ? percentile(ages, 0.5) : null;
     const old = ageN >= minSample ? percentile(ages, 0.9) : null;
     const growths = growthByCat.get(category) ?? [];
     const gMed = growths.length >= growthMinSample ? median(growths) : null;
+    // The launch rate: the share of the category's protocols in the mature window that
+    // already trade a token, shrunk toward the global rate so a thin category cannot swing
+    // on one launch, and read as a factor against the global rate, clamped so no category
+    // is written off or crowned.
+    const launchRec = launchByCat.get(category);
+    const launchN = launchRec === undefined ? 0 : launchRec.n;
+    const launchRate =
+      launchN >= model.launch_cat_min_sample && globalLaunchRate > 0
+        ? Math.round(((launchRec!.launched + model.launch_shrink * globalLaunchRate) / (launchN + model.launch_shrink)) * 1e4) / 1e4
+        : globalLaunchRate;
+    const launchFactor =
+      globalLaunchRate > 0
+        ? Math.min(model.launch_cat_max, Math.max(model.launch_cat_min, Math.round((0.5 + 0.5 * (launchRate / globalLaunchRate)) * 1e4) / 1e4))
+        : 1;
     out.push({
       category,
       live_count: n,
@@ -515,6 +820,12 @@ export function calibrateCategories(
       old_days: old === null ? globalOldDays : Math.round(old),
       growth_baseline: gMed === null ? globalBaseline : Math.round(gMed * 100) / 100,
       growth_n: growths.length,
+      size_k: sizeK,
+      size_k_ref: sizeKRef,
+      size_n: kList.length,
+      launch_rate: launchRate,
+      launch_n: launchN,
+      launch_factor: launchFactor,
     });
   }
   return out;
@@ -531,15 +842,19 @@ export function calibrationFor(
 }
 
 /** The protocols the board ranks, strongest first, with ranks 1..n. Each row is priced at its
- * category's calibrated multiple, its category's growth baseline and its category's maturity
- * peak, so two protocols of the same TVL, growth and age can still rank apart when their
- * categories' tokens trade at different shares of TVL, run at different baselines, and launch
- * on different clocks. */
+ * category's calibrated level K and the shared size exponent, its category's growth baseline
+ * and its category's maturity peak, so two protocols of the same TVL, growth and age can still
+ * rank apart when their categories' tokens trade at different levels, run at different
+ * baselines, and launch on different clocks — and two protocols of the same category rank
+ * apart when one is much bigger, because the market discounts size. */
 export function buildBoard(
   snapshot: Snapshot,
   model: ModelConstants = MODEL,
   cals: CategoryCalibration[] = [],
   globalBaseline: number = 0,
+  globalK: number = 0,
+  hazard: number = 0.0002,
+  fRef: number = 0.3,
 ): BoardRow[] {
   const index = bySlug(snapshot.protocols);
   const chosen = new Map<string, SnapshotProtocol>();
@@ -580,16 +895,22 @@ export function buildBoard(
     old_days: model.maturity_old_days,
     growth_baseline: globalBaseline,
     growth_n: 0,
+    size_k: globalK,
+    size_k_ref: globalK * Math.pow(model.size_ref_tvl, model.size_alpha - 1),
+    size_n: 0,
+    launch_rate: 0,
+    launch_n: 0,
+    launch_factor: 1,
   };
   const scored = [...chosen.values()].map((p) => {
     const cal = calibrationFor(p.category, cals, fallbackCal);
-    const { implied, growthPct, growthBaseline, relativeGrowthPct, growthMult, maturityMult, age } = impliedValue(p, snapshot.as_of, model, cal);
-    return { p, implied, growthPct, growthBaseline, relativeGrowthPct, growthMult, maturityMult, age, cal, isBoundary: boundary.has(p.slug) };
+    const { implied, growthPct, growthBaseline, relativeGrowthPct, growthMult, launch, ageFactor, catFactor, launchRate, age, sizeAlpha, sizeK, effectiveMultiple, referenceMultiple } = impliedValue(p, snapshot.as_of, model, cal, hazard, fRef);
+    return { p, implied, growthPct, growthBaseline, relativeGrowthPct, growthMult, launch, ageFactor, catFactor, launchRate, age, cal, isBoundary: boundary.has(p.slug), sizeAlpha, sizeK, effectiveMultiple, referenceMultiple };
   });
   scored.sort((a, b) => b.implied - a.implied || (a.p.slug < b.p.slug ? -1 : a.p.slug > b.p.slug ? 1 : 0));
   const boardSize = scored.length;
   return scored.map((s, i) => {
-    const signal = launchSignal(i + 1, boardSize, s.age, s.growthPct);
+    const signal = launchSignal(i + 1, boardSize, s.launch, s.age, s.growthPct);
     return {
     rank: i + 1,
     slug: s.p.slug,
@@ -608,15 +929,19 @@ export function buildBoard(
     implied_value_usd: s.implied,
     signal,
     model: {
-      base_multiple: s.cal.multiple,
+      base_multiple: round4(s.referenceMultiple),
       growth_pct: s.growthPct,
       growth_baseline: s.growthBaseline,
       relative_growth_pct: s.relativeGrowthPct,
       growth_multiplier: round4(s.growthMult),
-      maturity_multiplier: round4(s.maturityMult),
-      maturity_peak_days: s.cal.peak_days,
-      maturity_old_days: s.cal.old_days,
+      launch_factor: round4(s.launch),
+      launch_age_factor: round4(s.ageFactor),
+      launch_cat_factor: round4(s.catFactor),
+      launch_rate: s.launchRate,
       age_days: s.age,
+      size_alpha: s.sizeAlpha,
+      size_k: s.sizeK,
+      effective_multiple: round4(s.effectiveMultiple),
     },
     farm_steps: farmSteps(s.p, s.age, s.implied, signal).map(stepText),
     };
@@ -715,6 +1040,16 @@ function secondActionFor(p: SnapshotProtocol, capital: number, chain: string): s
   return `Make a second deposit of $${half} into ${name} on ${chain} and keep both positions open.`;
 }
 
+/** The gas one transaction costs on a chain, in dollars: Ethereum is the expensive chain
+ * (about $12), the big L2s about $0.50, the cheap chains about $0.10, anything else about
+ * $2. The tiers are ranges, not promises — gas moves — and the farm plan says "about". */
+function gasFor(chain: string): string {
+  if (chain === 'Ethereum') return '12';
+  if (/Arbitrum|Optimism|Base|zkSync|Scroll|Linea|Unichain|Mantle|Blast|Mode|Ink|Soneium/.test(chain)) return '0.50';
+  if (/Binance|Solana|Polygon|Avalanche|Tron|Sui|Aptos|Fantom|Celo|xDai|Berachain|Sonic|Sei|TON|Cardano|Gnosis|Hyperliquid/.test(chain)) return '0.10';
+  return '2';
+}
+
 /**
  * A protocol's farm plan: twelve steps, each an action with a cost and a time. The plan is derived
  * from the protocol's own record (category, chains, TVL, age, seven-day change, implied value,
@@ -730,6 +1065,7 @@ function secondActionFor(p: SnapshotProtocol, capital: number, chain: string): s
  */
 export function farmSteps(p: SnapshotProtocol, age: number | null, implied: number = 0, signal: LaunchSignal = 'Early'): FarmStep[] {
   const chain = chainOf(p);
+  const gas = gasFor(chain);
   const capital = capitalFor(p);
   const hold = holdDaysFor(age, signal);
   const action = actionFor(p, capital, chain);
@@ -744,27 +1080,27 @@ export function farmSteps(p: SnapshotProtocol, age: number | null, implied: numb
   return [
     {
       text: `Use a fresh wallet that holds only the funds you plan to farm on ${p.name}, and keep its seed phrase offline.`,
-      cost: 'under $3 of gas for the first transaction',
+      cost: `about $${gas} of gas for the first transaction on ${chain}`,
       time: '5 minutes',
     },
     {
       text: action,
-      cost: `$${capital} of capital and about $${capital >= 150 ? 8 : 4} of gas`,
+      cost: `$${capital} of capital and about $${gas} of gas`,
       time: '15 minutes to set up',
     },
     {
       text: second,
-      cost: `$${half} of capital and about $3 of gas`,
+      cost: `$${half} of capital and about $${gas} of gas`,
       time: '10 minutes to set up',
     },
     {
       text: cross,
-      cost: `$${half} of capital and about $4 of gas`,
+      cost: `$${half} of capital and about $${gas} of gas`,
       time: '10 minutes to set up',
     },
     {
       text: weeklyActionFor(p, chain),
-      cost: 'about $2 of gas a week',
+      cost: `about $${gas} of gas a week`,
       time: '10 minutes a week',
     },
     {
@@ -822,7 +1158,10 @@ export function liveRows(snapshot: Snapshot): LiveRow[] {
     }));
 }
 
-/** A board row's compact form for data.js, with the farm plan generated in the page. */
+/** A board row's compact form for data.js, with the farm plan generated in the page. The
+ * multiple the row shows is the effective one — the multiple it is actually priced at once
+ * size is accounted for — and the size level and exponent travel with it so the page can
+ * recompute the row from the same numbers. */
 export function radarRow(row: BoardRow): RadarRow {
   return {
     rank: row.rank,
@@ -838,35 +1177,45 @@ export function radarRow(row: BoardRow): RadarRow {
     implied_value_usd: row.implied_value_usd,
     signal: row.signal,
     boundary: row.boundary,
-    category_multiple: row.model.base_multiple,
+    category_multiple: row.model.effective_multiple,
     growth_baseline: row.model.growth_baseline,
     relative_growth_pct: row.model.relative_growth_pct,
     growth_multiplier: row.model.growth_multiplier,
-    maturity_multiplier: row.model.maturity_multiplier,
-    maturity_peak_days: row.model.maturity_peak_days,
-    maturity_old_days: row.model.maturity_old_days,
+    launch_factor: row.model.launch_factor,
+    launch_age_factor: row.model.launch_age_factor,
+    launch_cat_factor: row.model.launch_cat_factor,
+    launch_rate: row.model.launch_rate,
+    size_k: row.model.size_k,
+    size_alpha: row.model.size_alpha,
+    size_k_ref: row.model.base_multiple,
   };
 }
 
-/** The whole radar: the board and the dashboard's data, from one snapshot. The base multiple, the
- * per-category multiples, the per-category maturity peaks and the per-category growth baselines
- * are all calibrated from the snapshot's live-token and rankable protocols before the board is
- * built, so every implied value in the board uses the calibrated numbers. */
+/** The whole radar: the board and the dashboard's data, from one snapshot. The size exponent,
+ * the per-category levels K, the per-category maturity peaks and the per-category growth
+ * baselines are all calibrated from the snapshot's live-token and rankable protocols before
+ * the board is built, so every implied value in the board uses the calibrated numbers. */
 export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): { board: BoardRow[]; radar: RadarData } {
   const base = calibrateBaseMultiple(snapshot);
   const agePeak = calibrateAgePeak(snapshot);
+  const sizeExp = calibrateSizeExponent(snapshot, model);
+  const launchHaz = calibrateLaunchHazard(snapshot, model);
+  const launchRate = calibrateLaunchRate(snapshot, model);
+  const sizeK = calibrateSizeK(snapshot, sizeExp.alpha);
+  const sizeBands = calibrateSizeBands(snapshot);
   const rankableGrowth = snapshot.protocols
     .filter((p) => isRankable(p) && p.change_7d !== null && Number.isFinite(p.change_7d))
     .map((p) => p.change_7d as number);
   const globalBaseline = median(rankableGrowth) ?? 0;
-  const categories = calibrateCategories(snapshot, base.multiple, agePeak.peak_days, agePeak.old_days, globalBaseline);
+  const categories = calibrateCategories(snapshot, base.multiple, agePeak.peak_days, agePeak.old_days, globalBaseline, sizeExp.alpha, sizeK.k, launchRate.rate);
   const effective: ModelConstants = {
     ...model,
     base_multiple: base.multiple,
     maturity_peak_days: agePeak.peak_days,
     maturity_old_days: agePeak.old_days,
+    size_alpha: sizeExp.alpha,
   };
-  const board = buildBoard(snapshot, effective, categories, globalBaseline);
+  const board = buildBoard(snapshot, effective, categories, globalBaseline, sizeK.k, launchHaz.hazard, launchHaz.f_ref);
   const live = liveRows(snapshot);
   const early = board.filter((r) => !snapshot.watchlist.includes(r.slug) && !r.boundary).length;
   const boundarySize = board.filter((r) => r.boundary).length;
@@ -912,6 +1261,13 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
       old_days: agePeak.old_days,
       growth_baseline: Math.round(globalBaseline * 100) / 100,
       categories,
+      size_alpha: sizeExp.alpha,
+      size_k: sizeK.k,
+      size_bands: sizeBands,
+      launch_hazard: launchHaz.hazard,
+      launch_f_ref: launchHaz.f_ref,
+      launch_bands: launchHaz.bands,
+      launch_global_rate: launchRate.rate,
     },
     watchlist_size: snapshot.watchlist.length,
     board_size: board.length,
