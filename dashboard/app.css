@@ -1,4 +1,4 @@
-/* Token Radar — radar-2 theme. One palette, two radii, two families; the rest is spacing,
+/* Token Radar — radar-6 theme. One palette, two radii, two families; the rest is spacing,
    a hairline and a type step. Dark ink, gold signal, green for growth, red for decline. */
 :root {
   --bg: #0a0e17;
@@ -50,15 +50,15 @@ a { color: var(--gold); }
 .pill b { color: var(--text); font-weight: 600; }
 
 /* Hero */
-.lede { padding: 28px 0 8px; }
-.lede h1 { margin: 0 0 8px; font-size: 30px; line-height: 1.2; letter-spacing: -.4px; max-width: 760px; }
+.lede { padding: 22px 0 4px; }
+.lede h1 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; letter-spacing: -.4px; max-width: 760px; }
 .lede h1 .gold { color: var(--gold); }
-.lede p { margin: 0; color: var(--muted); max-width: 760px; font-size: 15px; }
-.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0 4px; }
-.fact { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
-.fact span { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px; }
-.fact b { font-size: 22px; font-weight: 750; font-family: var(--mono); letter-spacing: -.5px; }
-.fact small { display: block; color: var(--faint); font-size: 12px; margin-top: 2px; }
+.lede p { margin: 0; color: var(--muted); max-width: 760px; font-size: 14px; }
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 4px; }
+.fact { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.fact span { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 2px; }
+.fact b { font-size: 19px; font-weight: 750; font-family: var(--mono); letter-spacing: -.5px; }
+.fact small { display: block; color: var(--faint); font-size: 12px; margin-top: 1px; }
 
 /* Top 10 spotlight */
 .spot { margin: 22px 0 4px; }
@@ -111,8 +111,10 @@ td.num, th.num { text-align: right; }
 .implied .bar { height: 5px; background: #1e2740; border-radius: 3px; overflow: hidden; }
 .implied .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); border-radius: 3px; }
 .implied .num { font-weight: 700; font-size: 14px; }
+.model-line { display: block; font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 2px; white-space: nowrap; }
 .status { display: inline-block; font-size: 12px; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line2); color: var(--muted); white-space: nowrap; }
 .status.live { color: var(--green); border-color: #1e4d3a; }
+.status.bnd { color: var(--gold); border-color: var(--gold-dim); }
 .sig { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; border-radius: 5px; padding: 3px 7px; white-space: nowrap; }
 .sig.prime { background: var(--gold); color: #14100a; }
 .sig.watch { background: #22304d; color: var(--blue); border: 1px solid #31456e; }
@@ -141,20 +143,21 @@ dialog.detail::backdrop { background: rgba(4, 7, 14, .72); }
 .detail-head p { margin: 0; }
 .close { background: var(--panel2); color: var(--text); border: 1px solid var(--line2); border-radius: var(--radius-sm); padding: 8px 13px; font: inherit; font-size: 13px; cursor: pointer; flex: none; }
 .close:hover { border-color: var(--gold); }
-.detail-section { padding: 16px 22px 20px; border-top: 1px solid var(--line); margin-top: 16px; }
-.detail-section h3 { margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); }
-.equation { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
-.equation > div { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; }
-.equation span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
-.equation b { font-size: 16px; }
+.detail-section { padding: 12px 22px 16px; border-top: 1px solid var(--line); margin-top: 12px; }
+.detail-section h3 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); }
+.equation { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.equation > div { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 10px; }
+.equation span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+.equation b { font-size: 15px; }
 .equation .hl { border-color: var(--gold-dim); background: #1a1607; }
 .equation .hl b { color: var(--gold); }
+.why { border-left: 3px solid var(--gold); padding-left: 12px; color: var(--text); font-size: 14px; margin: 0; }
 .steps { margin: 0; padding-left: 0; list-style: none; counter-reset: step; }
-.steps li { counter-increment: step; padding: 11px 0 11px 44px; position: relative; border-bottom: 1px solid var(--line); }
+.steps li { counter-increment: step; padding: 8px 0 8px 40px; position: relative; border-bottom: 1px solid var(--line); }
 .steps li:last-child { border-bottom: 0; }
-.steps li::before { content: counter(step); position: absolute; left: 0; top: 11px; width: 28px; height: 28px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--line2); color: var(--gold); font-family: var(--mono); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.steps li b { display: block; font-weight: 600; font-size: 14px; margin-bottom: 2px; }
-.steps .cost { color: var(--muted); font-size: 13px; }
+.steps li::before { content: counter(step); position: absolute; left: 0; top: 8px; width: 26px; height: 26px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--line2); color: var(--gold); font-family: var(--mono); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.steps li b { display: inline; font-weight: 600; font-size: 13px; }
+.steps .cost { display: inline; color: var(--muted); font-size: 12px; }
 
 /* Footer */
 .foot { color: var(--faint); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 8px; }
